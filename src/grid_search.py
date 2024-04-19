@@ -16,34 +16,50 @@ for col in data.columns:
         data[col] = 1 - data[col]
     elif col.endswith("-"):
         data[col] = (data[col] - data[col].min()) / (data[col].max() - data[col].min())
-        
+
 
 data["d2h"] = None
 
 
-calculate_distance = lambda row: round(math.sqrt(sum((row[col] ** 2) for col in data.columns if col.endswith("+") or col.endswith("-")) / sum(1 for col in data.columns if col.endswith("+") or col.endswith("-"))), 3)
+calculate_distance = lambda row: round(
+    math.sqrt(
+        sum(
+            (row[col] ** 2)
+            for col in data.columns
+            if col.endswith("+") or col.endswith("-")
+        )
+        / sum(1 for col in data.columns if col.endswith("+") or col.endswith("-"))
+    ),
+    3,
+)
 data['d2h'] = data.apply(calculate_distance, axis=1)
 
 
-cols = list(data.columns)    
+cols = list(data.columns)
 
-columns_to_drop = [col for col in data.columns if col.endswith('+') or col.endswith('-')]
+columns_to_drop = [
+    col for col in data.columns if col.endswith('+') or col.endswith('-')
+]
 data = data.drop(columns=columns_to_drop)
-
-data.to_csv("data.csv", sep=",", index=False)
 
 X = data.drop(columns=['d2h'])
 y = data['d2h']
 
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
 
 rf = RandomForestRegressor()
 
 # Define hyperparameter ranges
 param_grid = {
-    'n_estimators': np.linspace(10, 200, 20, dtype=int),  # 100 variations of n_estimators from 10 to 200
-    'max_depth': np.linspace(1, 20, 20, dtype=int)         # 100 variations of max_depth from 1 to 20
+    'n_estimators': np.linspace(
+        1, 200, 200, dtype=int
+    ),  # 200 variations of n_estimators from 1 to 200
+    'max_depth': np.linspace(
+        1, 30, 30, dtype=int
+    ),  # 30 variations of max_depth from 1 to 30
 }
 
 mse_results = []
@@ -53,19 +69,21 @@ for params in ParameterGrid(param_grid):
     rf = RandomForestRegressor(**params)
 
     # Train the model
-    rf.fit(X, y)
+    rf.fit(X_train, y_train)
 
     # Predict on the training set
-    y_pred = rf.predict(X)
+    y_pred = rf.predict(X_test)
 
     # Calculate mean squared error
-    mse = mean_squared_error(y, y_pred)
+    mse = mean_squared_error(y_test, y_pred)
 
     # Store MSE along with corresponding hyperparameters
     mse_results.append((params['n_estimators'], params['max_depth'], mse))
 
     # Print current hyperparameters and MSE
-    print(f"n_estimators: {params['n_estimators']}, max_depth: {params['max_depth']}, MSE: {mse}")
+    print(
+        f"n_estimators: {params['n_estimators']}, max_depth: {params['max_depth']}, MSE: {mse}"
+    )
 
 # Extract data for visualization
 estimators = [result[0] for result in mse_results]

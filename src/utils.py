@@ -3,6 +3,7 @@ import re
 from pathlib import Path
 from config import *
 
+
 def coerce(s):
     if s.isdigit():
         return int(s)
@@ -16,6 +17,7 @@ def coerce(s):
         return None
     else:
         return s.strip()
+
 
 def settings(s):
     t = {}
@@ -36,8 +38,8 @@ def cli(options):
 def eg(key, str, fun):
     egs[key] = fun
     global help
-    help = help + '  -g '+ key + '\t' + str + '\n'
-    
+    help = help + '  -g ' + key + '\t' + str + '\n'
+
 
 def csv(sFilename, fun):
     sFilename = Path(sFilename)
@@ -49,7 +51,8 @@ def csv(sFilename, fun):
                 t.append(row)
                 fun(row)
     else:
-        print("File path does not exist OR File not csv, given path: ", sFilename.absolute())
+        print(
+            "File path does not exist OR File not csv, given path: ",
+            sFilename.absolute(),
+        )
         return
-    
-

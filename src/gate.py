@@ -3,6 +3,7 @@ from config import *
 from data import DATA
 import os
 
+
 def main():
     saved_options = {}
     fails = 0
@@ -27,7 +28,8 @@ def main():
                     print('❌ fail:', action)
                 else:
                     print('✅ pass:', action)
-    
+
+
 def learn(data, row, my):
     my["n"] += 1
     kl = row.cells[data.cols.klass.at]
@@ -39,12 +41,14 @@ def learn(data, row, my):
     my["datas"][kl] = my["datas"].get(kl, DATA(data.cols.names))
     my["datas"][kl].add(row)
 
+
 def bayes(path):
     wme = {'acc': 0, 'datas': {}, 'tries': 0, 'n': 0}
     data = DATA(path)
     for row in data.rows:
         learn(data, row, wme)
     return wme['acc'] / wme['tries']
+
 
 def print_class_percentages(data):
     class_counts = {}
@@ -66,5 +70,3 @@ if __name__ == '__main__':
     data = DATA('hw/w4/data/auto93.csv')
     for _ in range(20):
         data.gate(4, 10, 0.5)
-
-    
