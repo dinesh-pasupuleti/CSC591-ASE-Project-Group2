@@ -92,7 +92,7 @@ plt.show()
 
 
 # Find the best combination with minimum MSE
-best_params, best_mse = min(mse_results, key=lambda x: x[2])
+n_estimators, max_depth, best_mse = min(mse_results, key=lambda x: x[2])
 
 # Print the best combination and its MSE
-print(f"\nBest combination - n_estimators: {best_params}, Min MSE: {best_mse}")
+print(f"\nBest combination - {(n_estimators, max_depth)}, Min MSE: {best_mse}")
