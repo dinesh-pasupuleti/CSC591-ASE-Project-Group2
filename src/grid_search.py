@@ -2,101 +2,91 @@ import pandas as pd
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split, RandomizedSearchCV, ParameterGrid
-from sklearn.neighbors import KNeighborsRegressor
-from sklearn.linear_model import ElasticNet
-from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split, ParameterGrid
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error
+import csv
 
+# Load data
 data = pd.read_csv("data/Wine_quality.csv")
 
+# Preprocess data
 for col in data.columns:
     if col.endswith("+") or col.endswith("-"):
-        data[col] = (data[col] - data[col].min()) / (data[col].max() - data[col].min())
-        data[col] = 1 - data[col]
-    elif col.endswith("-"):
-        data[col] = (data[col] - data[col].min()) / (data[col].max() - data[col].min())
+        data[col] = 1 - (data[col] - data[col].min()) / (data[col].max() - data[col].min())
 
+def calculate_distance(row):
+    cols_to_include = [col for col in data.columns if col.endswith("+") or col.endswith("-")]
+    return round(math.sqrt(sum((row[col] ** 2) for col in cols_to_include)) / len(cols_to_include), 3)
 
-data["d2h"] = None
-
-
-calculate_distance = lambda row: round(
-    math.sqrt(
-        sum(
-            (row[col] ** 2)
-            for col in data.columns
-            if col.endswith("+") or col.endswith("-")
-        )
-        / sum(1 for col in data.columns if col.endswith("+") or col.endswith("-"))
-    ),
-    3,
-)
 data['d2h'] = data.apply(calculate_distance, axis=1)
 
+# Drop columns ending with '+' or '-'
+columns_to_drop = [col for col in data.columns if col.endswith('+') or col.endswith('-')]
+data.drop(columns=columns_to_drop, inplace=True)
 
-cols = list(data.columns)
-
-columns_to_drop = [
-    col for col in data.columns if col.endswith('+') or col.endswith('-')
-]
-data = data.drop(columns=columns_to_drop)
-
+# Split data into X and y
 X = data.drop(columns=['d2h'])
 y = data['d2h']
 
-
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
-
-rf = RandomForestRegressor()
+# Split into train and test sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 # Define hyperparameter ranges
 param_grid = {
-    'n_estimators': np.linspace(
-        1, 200, 200, dtype=int
-    ),  # 200 variations of n_estimators from 1 to 200
-    'max_depth': np.linspace(
-        1, 30, 30, dtype=int
-    ),  # 30 variations of max_depth from 1 to 30
+    'n_estimators': np.linspace(1, 200, 200, dtype=int),
+    'max_depth': np.linspace(1, 30, 30, dtype=int)
 }
 
+# Initialize list to store MSE results
 mse_results = []
 
-for params in ParameterGrid(param_grid):
-    # Initialize random forest regressor with current hyperparameters
-    rf = RandomForestRegressor(**params)
+# Open CSV file for writing MSE results
+with open('mse_results.csv', 'w', newline='') as csvfile:
+    fieldnames = ['n_estimators', 'max_depth', 'mse']
+    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+    writer.writeheader()
 
-    # Train the model
-    rf.fit(X_train, y_train)
+    # Loop over parameter grid and evaluate each combination
+    for params in ParameterGrid(param_grid):
+        # Initialize RandomForestRegressor with current hyperparameters
+        rf = RandomForestRegressor(**params, random_state=42)
+        
+        # Train the model
+        rf.fit(X_train, y_train)
+        
+        # Predict on the test set
+        y_pred = rf.predict(X_test)
+        
+        # Calculate mean squared error
+        mse = mean_squared_error(y_test, y_pred)
+        
+        # Store hyperparameters and MSE in results list
+        mse_results.append((params['n_estimators'], params['max_depth'], mse))
+        
+        # Write hyperparameters and MSE to CSV file
+        writer.writerow({'n_estimators': params['n_estimators'], 'max_depth': params['max_depth'], 'mse': mse})
+        
+        # Print current hyperparameters and MSE
+        print(f"n_estimators: {params['n_estimators']}, max_depth: {params['max_depth']}, MSE: {mse}")
 
-    # Predict on the training set
-    y_pred = rf.predict(X_test)
+print("MSE results saved to mse_results.csv")
 
-    # Calculate mean squared error
-    mse = mean_squared_error(y_test, y_pred)
+# Extract data for visualization from the CSV file
+df_results = pd.read_csv('mse_results.csv')
+estimators = df_results['n_estimators']
+depths = df_results['max_depth']
+mse_values = df_results['mse']
 
-    # Store MSE along with corresponding hyperparameters
-    mse_results.append((params['n_estimators'], params['max_depth'], mse))
-
-    # Print current hyperparameters and MSE
-    print(
-        f"n_estimators: {params['n_estimators']}, max_depth: {params['max_depth']}, MSE: {mse}"
-    )
-
-# Extract data for visualization
-estimators = [result[0] for result in mse_results]
-depths = [result[1] for result in mse_results]
-mse_values = [result[2] for result in mse_results]
-
-# Create 3D scatter plot (optional)
-fig = plt.figure()
+# Create 3D scatter plot
+fig = plt.figure(figsize=(10, 6))
 ax = fig.add_subplot(111, projection='3d')
-ax.scatter(estimators, depths, mse_values)
+ax.scatter(estimators, depths, mse_values, c=mse_values, cmap='viridis')
 ax.set_xlabel('n_estimators')
 ax.set_ylabel('max_depth')
 ax.set_zlabel('Mean Squared Error')
+plt.title('MSE for Random Forest Regression Hyperparameters')
+plt.colorbar(ax.collections[0], label='Mean Squared Error')
 plt.show()
 
 # Alternatively, create a heatmap
@@ -108,9 +98,6 @@ plt.ylabel('max_depth')
 plt.title('MSE for Random Forest Regression Hyperparameters')
 plt.show()
 
-
 # Find the best combination with minimum MSE
-n_estimators, max_depth, best_mse = min(mse_results, key=lambda x: x[2])
-
-# Print the best combination and its MSE
-print(f"\nBest combination - {(n_estimators, max_depth)}, Min MSE: {best_mse}")
+best_params = df_results.loc[df_results['mse'].idxmin()]
+print(f"\nBest combination - (n_estimators: {best_params['n_estimators']}, max_depth: {best_params['max_depth']}), Min MSE: {best_params['mse']}")
