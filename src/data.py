@@ -93,7 +93,7 @@ class DATA:
         for i, row in enumerate(dark):
             b = row.like(best_data, len(lite), 2)
             r = row.like(rest_data, len(lite), 2)
-            score = abs(b + r) / (abs(b - r) + 1E-30)
+            score = abs(b + r) / (abs(b - r) + 1e-30)
             if score > max_score:
                 max_score, todo = score, i
         return todo
