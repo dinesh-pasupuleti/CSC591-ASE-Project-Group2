@@ -1,7 +1,12 @@
 from utils import *
 from config import *
 from data import DATA
+import math
 import os
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
 
 
 def main():
@@ -67,6 +72,81 @@ def print_class_percentages(data):
 
 if __name__ == '__main__':
     main()
-    data = DATA('hw/w4/data/auto93.csv')
-    for _ in range(20):
-        data.gate(4, 10, 0.5)
+    
+    file_name = "Wine_quality"
+    
+    params = pd.read_csv('data/params.csv')
+    params.drop(columns=["mse"])
+    params.to_csv("data/paramsX.csv", index=False)
+    
+    
+    params = DATA('data/paramsX.csv')
+    
+    os.remove('data/paramsX.csv')
+    
+    data1 = pd.read_csv(f"data/{file_name}.csv")
+
+    for col in data1.columns:
+        if col.endswith("+") or col.endswith("-"):
+            data1[col] = (data1[col] - data1[col].min()) / (
+                data1[col].max() - data1[col].min()
+            )
+            data1[col] = 1 - data1[col]
+        elif col.endswith("-"):
+            data1[col] = (data1[col] - data1[col].min()) / (
+                data1[col].max() - data1[col].min()
+            )
+
+    data1["d2h"] = None
+
+    calculate_distance = lambda row: round(
+        math.sqrt(
+            sum(
+                (row[col] ** 2)
+                for col in data1.columns
+                if col.endswith("+") or col.endswith("-")
+            )
+            / sum(1 for col in data1.columns if col.endswith("+") or col.endswith("-"))
+        ),
+        3,
+    )
+    data1['d2h'] = data1.apply(calculate_distance, axis=1)
+
+    cols = list(data1.columns)
+
+    columns_to_drop = [
+        col for col in data1.columns if col.endswith('+') or col.endswith('-')
+    ]
+    data1 = data1.drop(columns=columns_to_drop)
+    data1.to_csv(f"data/{file_name}_processed.csv", sep=",", index=False)
+
+    iters = 20
+    total_error = 0
+
+    for _ in range(iters):
+        lite = params.gate(4, 10, 0.5, file_name)
+        
+        X, y = [], []
+        
+        for row in lite:
+            X.append([row.cells[0], row.cells[1]])
+            y.append(params.lite_mse.get((row.cells[0], row.cells[1])))
+        
+        print(X)
+        print(y)
+        
+        lr = LinearRegression()
+        lr.fit(X, y)
+        
+        # y_pred = lr.predict(X_test)
+        
+        # mse = mean_squared_error(y_test, y_pred)
+        # total_error += mse
+        
+        # print(mse)
+    
+    avg_error = total_error / iters
+    print(avg_error)
+    
+    os.remove(f"data/{file_name}_processed.csv")
+    

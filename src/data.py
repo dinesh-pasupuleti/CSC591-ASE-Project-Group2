@@ -2,13 +2,17 @@ from cols import COLS
 from rows import ROW
 from utils import *
 import random
-import math
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+import pandas as pd
 
 
 class DATA:
     def __init__(self, src, fun=None):
         self.rows = []
         self.cols = None
+        self.lite_mse = {}
         if isinstance(src, str):
             csv(src, self.add)
         else:
@@ -49,63 +53,46 @@ class DATA:
 
     def shuffle(self, items):
         return random.sample(items, len(items))
+    
+    def get_mse_value(self, row, file_name):
+        if (row.cells[0], row.cells[1]) in self.lite_mse:
+            return self.lite_mse[(row.cells[0], row.cells[1])]
+        return self.mse(row, file_name)
 
-    def gate(self, budget0, budget, some):
-        heaven = 1.0
-        rows = self.shuffle(self.rows)
-        print(
-            "1. top6", [[row.cells[x] for x in self.cols.y.keys()] for row in rows[:6]]
-        )
-        print(
-            "2. top50",
-            [[row.cells[x] for x in self.cols.y.keys()] for row in rows[:50]],
-        )
-
-        rows.sort(key=lambda row: self.distance2heaven(row, heaven))
-        print("3. most", [rows[0].cells[x] for x in list(self.cols.y.keys())])
+    def gate(self, budget0, budget, some, file_name):
 
         rows = self.shuffle(self.rows)
         lite = rows[:budget0]
         dark = rows[budget0:]
+        self.lite_mse = {}
 
         for _ in range(budget):
-            lite.sort(key=lambda row: self.distance2heaven(row, heaven))
+            print("processing")
+            lite.sort(key=lambda row: self.get_mse_value(row, file_name))
             n = int(len(lite) ** some)
             best, rest = lite[:n], lite[n:]
-            todo, selected = self.split(best, rest, lite, dark)
-
-            dark_sample = random.sample(dark, budget0 + 1)
-            print(
-                "4: rand",
-                [
-                    dark_sample[len(dark_sample) // 2].cells[x]
-                    for x in self.cols.y.keys()
-                ],
-            )
-            if len(selected.rows) > 0:
-                print(
-                    "5: mid",
-                    [
-                        selected.rows[len(selected.rows) // 2].cells[x]
-                        for x in self.cols.y.keys()
-                    ],
-                )
-            print("6: top", [best[0].cells[x] for x in self.cols.y.keys()])
-
+            todo = self.split(best, rest, lite, dark)
             lite.append(dark.pop(todo))
+            self.mse(lite[-1], file_name)
+        return lite
 
-    def distance2heaven(self, row, heaven):
-        norm = lambda c, x: (x - c.lo) / (c.hi - c.lo)
-        return math.sqrt(
-            sum(
-                (heaven - norm(col, row.cells[y])) ** 2
-                for y, col in self.cols.y.items()
-            )
-            / len(self.cols.y)
+    def mse(self, row, file_name):
+        data = pd.read_csv(f"data/{file_name}_processed.csv")
+        X = data.drop(columns=['d2h'])
+        y = data['d2h']
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
         )
 
+        rf = RandomForestRegressor(n_estimators=row.cells[0], max_depth=row.cells[1])
+        rf.fit(X_train, y_train)
+        y_pred = rf.predict(X_test)
+        mse = mean_squared_error(y_test, y_pred)
+        self.lite_mse[(row.cells[0], row.cells[1])] = mse
+        return mse
+
     def split(self, best, rest, lite, dark):
-        selected = DATA(self.cols.names)
         max_score = float('-inf')
 
         best_data = DATA(self.cols.names)
@@ -119,9 +106,7 @@ class DATA:
         for i, row in enumerate(dark):
             b = row.like(best_data, len(lite), 2)
             r = row.like(rest_data, len(lite), 2)
-            if b > r:
-                selected.add(row)
             score = abs(b + r) / abs(b - r)
             if score > max_score:
                 max_score, todo = score, i
-        return todo, selected
+        return todo

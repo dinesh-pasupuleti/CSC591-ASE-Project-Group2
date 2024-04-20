@@ -2,9 +2,7 @@ import pandas as pd
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split, RandomizedSearchCV, ParameterGrid
-from sklearn.neighbors import KNeighborsRegressor
-from sklearn.linear_model import ElasticNet
+from sklearn.model_selection import train_test_split, ParameterGrid
 from sklearn.metrics import mean_squared_error
 from sklearn.ensemble import RandomForestRegressor
 
