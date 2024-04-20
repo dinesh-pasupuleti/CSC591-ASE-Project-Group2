@@ -13,16 +13,28 @@ data = pd.read_csv("data/Wine_quality.csv")
 # Preprocess data
 for col in data.columns:
     if col.endswith("+") or col.endswith("-"):
-        data[col] = 1 - (data[col] - data[col].min()) / (data[col].max() - data[col].min())
+        data[col] = 1 - (data[col] - data[col].min()) / (
+            data[col].max() - data[col].min()
+        )
+
 
 def calculate_distance(row):
-    cols_to_include = [col for col in data.columns if col.endswith("+") or col.endswith("-")]
-    return round(math.sqrt(sum((row[col] ** 2) for col in cols_to_include)) / len(cols_to_include), 3)
+    cols_to_include = [
+        col for col in data.columns if col.endswith("+") or col.endswith("-")
+    ]
+    return round(
+        math.sqrt(sum((row[col] ** 2) for col in cols_to_include))
+        / len(cols_to_include),
+        3,
+    )
+
 
 data['d2h'] = data.apply(calculate_distance, axis=1)
 
 # Drop columns ending with '+' or '-'
-columns_to_drop = [col for col in data.columns if col.endswith('+') or col.endswith('-')]
+columns_to_drop = [
+    col for col in data.columns if col.endswith('+') or col.endswith('-')
+]
 data.drop(columns=columns_to_drop, inplace=True)
 
 # Split data into X and y
@@ -30,12 +42,14 @@ X = data.drop(columns=['d2h'])
 y = data['d2h']
 
 # Split into train and test sets
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
 
 # Define hyperparameter ranges
 param_grid = {
     'n_estimators': np.linspace(1, 200, 200, dtype=int),
-    'max_depth': np.linspace(1, 30, 30, dtype=int)
+    'max_depth': np.linspace(1, 30, 30, dtype=int),
 }
 
 # Initialize list to store MSE results
@@ -51,24 +65,32 @@ with open('mse_results.csv', 'w', newline='') as csvfile:
     for params in ParameterGrid(param_grid):
         # Initialize RandomForestRegressor with current hyperparameters
         rf = RandomForestRegressor(**params, random_state=42)
-        
+
         # Train the model
         rf.fit(X_train, y_train)
-        
+
         # Predict on the test set
         y_pred = rf.predict(X_test)
-        
+
         # Calculate mean squared error
         mse = mean_squared_error(y_test, y_pred)
-        
+
         # Store hyperparameters and MSE in results list
         mse_results.append((params['n_estimators'], params['max_depth'], mse))
-        
+
         # Write hyperparameters and MSE to CSV file
-        writer.writerow({'n_estimators': params['n_estimators'], 'max_depth': params['max_depth'], 'mse': mse})
-        
+        writer.writerow(
+            {
+                'n_estimators': params['n_estimators'],
+                'max_depth': params['max_depth'],
+                'mse': mse,
+            }
+        )
+
         # Print current hyperparameters and MSE
-        print(f"n_estimators: {params['n_estimators']}, max_depth: {params['max_depth']}, MSE: {mse}")
+        print(
+            f"n_estimators: {params['n_estimators']}, max_depth: {params['max_depth']}, MSE: {mse}"
+        )
 
 print("MSE results saved to mse_results.csv")
 
@@ -100,4 +122,6 @@ plt.show()
 
 # Find the best combination with minimum MSE
 best_params = df_results.loc[df_results['mse'].idxmin()]
-print(f"\nBest combination - (n_estimators: {best_params['n_estimators']}, max_depth: {best_params['max_depth']}), Min MSE: {best_params['mse']}")
+print(
+    f"\nBest combination - (n_estimators: {best_params['n_estimators']}, max_depth: {best_params['max_depth']}), Min MSE: {best_params['mse']}"
+)

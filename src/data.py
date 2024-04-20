@@ -12,7 +12,7 @@ class DATA:
     def __init__(self, src, fun=None):
         self.rows = []
         self.cols = None
-        self.lite_mse = {}
+        self.mse_data = None
         if isinstance(src, str):
             csv(src, self.add)
         else:
@@ -53,44 +53,31 @@ class DATA:
 
     def shuffle(self, items):
         return random.sample(items, len(items))
-    
-    def get_mse_value(self, row, file_name):
-        if (row.cells[0], row.cells[1]) in self.lite_mse:
-            return self.lite_mse[(row.cells[0], row.cells[1])]
-        return self.mse(row, file_name)
+
+    def get_mse_value(self, row):
+        mse_value = self.mse_data.loc[
+            (self.mse_data['n_estimators'] == row.cells[0])
+            & (self.mse_data['max_depth'] == row.cells[1]),
+            'mse',
+        ].values[0]
+        return mse_value
 
     def gate(self, budget0, budget, some, file_name):
+
+        self.mse_data = pd.read_csv(f"data/{file_name}_mse.csv")
 
         rows = self.shuffle(self.rows)
         lite = rows[:budget0]
         dark = rows[budget0:]
-        self.lite_mse = {}
 
         for _ in range(budget):
             print("processing")
-            lite.sort(key=lambda row: self.get_mse_value(row, file_name))
+            lite.sort(key=lambda row: self.get_mse_value(row))
             n = int(len(lite) ** some)
             best, rest = lite[:n], lite[n:]
             todo = self.split(best, rest, lite, dark)
             lite.append(dark.pop(todo))
-            self.mse(lite[-1], file_name)
         return lite
-
-    def mse(self, row, file_name):
-        data = pd.read_csv(f"data/{file_name}_processed.csv")
-        X = data.drop(columns=['d2h'])
-        y = data['d2h']
-
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
-        )
-
-        rf = RandomForestRegressor(n_estimators=row.cells[0], max_depth=row.cells[1])
-        rf.fit(X_train, y_train)
-        y_pred = rf.predict(X_test)
-        mse = mean_squared_error(y_test, y_pred)
-        self.lite_mse[(row.cells[0], row.cells[1])] = mse
-        return mse
 
     def split(self, best, rest, lite, dark):
         max_score = float('-inf')
@@ -106,7 +93,7 @@ class DATA:
         for i, row in enumerate(dark):
             b = row.like(best_data, len(lite), 2)
             r = row.like(rest_data, len(lite), 2)
-            score = abs(b + r) / abs(b - r)
+            score = abs(b + r) / (abs(b - r) + 1E-30)
             if score > max_score:
                 max_score, todo = score, i
         return todo
