@@ -70,8 +70,8 @@ class DATA:
         lite = rows[:budget0]
         dark = rows[budget0:]
 
-        for _ in range(budget):
-            print("processing")
+        for i in range(budget):
+            print(f"processing {i}")
             lite.sort(key=lambda row: self.get_mse_value(row))
             n = int(len(lite) ** some)
             best, rest = lite[:n], lite[n:]

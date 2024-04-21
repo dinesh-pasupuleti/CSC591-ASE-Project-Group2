@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from hyperopt import hp, fmin, tpe, Trials
 
 
@@ -99,8 +99,28 @@ plt.ylabel('Mean Squared Error')
 plt.grid(True)
 plt.show()
 
-# Print the best parameters found
-print("Best Parameters:", best_params)
+# Print the number of TPE evaluations
+print("Number of TPE evaluations:", len(trials.trials))
+
+param_grid_random = {
+    'n_estimators': np.random.choice(np.arange(50, 501, 10), size=100, replace=True),  # Adjust size if needed
+    'max_depth': np.random.choice(np.arange(5, 21), size=100, replace=True),  # Adjust size if needed
+}
+
+random_search = RandomizedSearchCV(estimator=RandomForestRegressor(random_state=42),
+                                   param_distributions=param_grid_random,
+                                   n_iter=100,
+                                   cv=5,
+                                   scoring='neg_mean_squared_error',
+                                   random_state=42)
+random_search.fit(X_train, y_train)
+
+# Print results and compare
+print("Random Search: Best Parameters:", random_search.best_params_)
+print("Random Search: Final MSE on Test Set:", mean_squared_error(y_test, random_search.predict(X_test)))
+
+# Print the best parameters found by TPE
+print("Best Parameters (TPE):", best_params)
 
 # Evaluate the final model with the best parameters on the test set
 best_params['n_estimators'] = int(best_params['n_estimators'])
@@ -111,4 +131,4 @@ final_model.fit(X_train, y_train)
 
 y_pred_final = final_model.predict(X_test)
 mse_final = mean_squared_error(y_test, y_pred_final)
-print("Final MSE on Test Set:", mse_final)
+print("Final MSE on Test Set (TPE):", mse_final)

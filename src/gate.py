@@ -103,7 +103,7 @@ if __name__ == '__main__':
     total_error = 0
 
     for _ in range(iters):
-        lite = paramsX.gate(4, 10, 0.5, file_name)
+        lite = paramsX.gate(600, 300, 0.5, file_name)
 
         X, y = [], []
 
