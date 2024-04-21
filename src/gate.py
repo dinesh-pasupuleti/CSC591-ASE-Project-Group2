@@ -57,7 +57,7 @@ if __name__ == '__main__':
 
     file_name = "Wine_quality"
 
-    params = pd.read_csv(f'data/{file_name}_mse.csv')
+    params = pd.read_csv(f'data/gradientsearch/{file_name}_mse.csv')
     paramsX = params.drop(columns=["mse"])
     paramsX.to_csv("data/paramsX.csv", index=False)
 
@@ -119,8 +119,8 @@ if __name__ == '__main__':
             ].values[0]
             y.append(mse_value)
 
-        print(X)
-        print(y)
+        # print(X)
+        # print(y)
 
         lr = LinearRegression()
         lr.fit(X, y)
@@ -132,7 +132,7 @@ if __name__ == '__main__':
         mse = mean_squared_error(y_test, y_pred)
         total_error += mse
 
-        print(mse)
+        print(f"MSE- {mse}")
 
     avg_error = total_error / iters
     print(f"Average MSE- {avg_error}")

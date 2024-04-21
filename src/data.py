@@ -64,14 +64,14 @@ class DATA:
 
     def gate(self, budget0, budget, some, file_name):
 
-        self.mse_data = pd.read_csv(f"data/{file_name}_mse.csv")
+        self.mse_data = pd.read_csv(f"data/gradientsearch/{file_name}_mse.csv")
 
         rows = self.shuffle(self.rows)
         lite = rows[:budget0]
         dark = rows[budget0:]
 
         for i in range(budget):
-            print(f"processing {i}")
+            # print(f"processing {i}")
             lite.sort(key=lambda row: self.get_mse_value(row))
             n = int(len(lite) ** some)
             best, rest = lite[:n], lite[n:]
