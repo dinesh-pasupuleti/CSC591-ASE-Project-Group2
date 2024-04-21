@@ -17,10 +17,24 @@ for col in data.columns:
         data[col] = (data[col] - data[col].min()) / (data[col].max() - data[col].min())
         data[col] = 1 - data[col]
 
-data["d2h"] = data.apply(lambda row: round(math.sqrt(sum((row[col] ** 2) for col in data.columns if col.endswith("+") or col.endswith("-"))) / sum(1 for col in data.columns if col.endswith("+") or col.endswith("-"))), axis=1)
+data["d2h"] = data.apply(
+    lambda row: round(
+        math.sqrt(
+            sum(
+                (row[col] ** 2)
+                for col in data.columns
+                if col.endswith("+") or col.endswith("-")
+            )
+        )
+        / sum(1 for col in data.columns if col.endswith("+") or col.endswith("-"))
+    ),
+    axis=1,
+)
 
 # Drop unnecessary columns
-columns_to_drop = [col for col in data.columns if col.endswith('+') or col.endswith('-')]
+columns_to_drop = [
+    col for col in data.columns if col.endswith('+') or col.endswith('-')
+]
 data = data.drop(columns=columns_to_drop)
 
 # Split data into features (X) and target (y)
@@ -28,29 +42,36 @@ X = data.drop(columns=['d2h'])
 y = data['d2h']
 
 # Split data into train and test sets
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
 
 # Define objective function for optimization
 def objective_function(params):
-    model = RandomForestRegressor(n_estimators=params['n_estimators'],
-                                   max_depth=params['max_depth'],
-                                   random_state=42)
+    model = RandomForestRegressor(
+        n_estimators=params['n_estimators'],
+        max_depth=params['max_depth'],
+        random_state=42,
+    )
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
     mse = mean_squared_error(y_test, y_pred)
     return mse
 
+
 # Define search space for Bayesian optimization
-search_space = {'n_estimators': Integer(50, 500),
-                'max_depth': Integer(5, 20)}
+search_space = {'n_estimators': Integer(50, 500), 'max_depth': Integer(5, 20)}
 
 # Initialize BayesSearchCV optimizer
-opt = BayesSearchCV(estimator=RandomForestRegressor(),
-                    search_spaces=search_space,
-                    n_iter=100,  # Number of iterations
-                    cv=5,        # Number of cross-validation folds
-                    scoring='neg_mean_squared_error',  # Optimization metric
-                    random_state=42)
+opt = BayesSearchCV(
+    estimator=RandomForestRegressor(),
+    search_spaces=search_space,
+    n_iter=100,  # Number of iterations
+    cv=5,  # Number of cross-validation folds
+    scoring='neg_mean_squared_error',  # Optimization metric
+    random_state=42,
+)
 
 # Perform Bayesian optimization
 opt.fit(X_train, y_train)

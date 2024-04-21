@@ -6,9 +6,13 @@ from sklearn.model_selection import train_test_split, ParameterGrid
 from sklearn.metrics import mean_squared_error
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import ParameterGrid
+import csv
+import time
 
 # Load data (assuming 'data/Wine_quality.csv' is your data file path)
-data = pd.read_csv("data/Wine_quality.csv")
+start = time.time()
+filename = "Wine_quality"
+data = pd.read_csv(f"data/{filename}.csv")
 
 # Normalize the dataset based on column suffixes
 for col in data.columns:
@@ -39,32 +43,45 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 
 # Define the parameter grid for hyperparameter tuning
 param_grid = {
-    'n_estimators': np.random.choice(np.arange(1, 201), size=10, replace=False),
-    'max_depth': np.random.choice(np.arange(1, 31), size=5, replace=False),
+    'n_estimators': np.random.choice(np.arange(1, 201), size=75, replace=False),
+    'max_depth': np.random.choice(np.arange(1, 31), size=8, replace=False),
 }
 
 # Store MSE results for different hyperparameter combinations
 mse_results = []
 
-# Perform grid search over the parameter grid
-for params in ParameterGrid(param_grid):
-    # Initialize random forest regressor with current hyperparameters
-    rf = RandomForestRegressor(**params)
+with open(f'data/randomsearch/{filename}_mse_results.csv', 'w', newline='') as csvfile:
+    fieldnames = ['n_estimators', 'max_depth', 'mse']
+    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+    writer.writeheader()
 
-    # Train the model
-    rf.fit(X_train, y_train)
+    # Perform grid search over the parameter grid
+    for params in ParameterGrid(param_grid):
+        # Initialize random forest regressor with current hyperparameters
+        rf = RandomForestRegressor(**params)
 
-    # Predict on the testing set
-    y_pred = rf.predict(X_test)
+        # Train the model
+        rf.fit(X_train, y_train)
 
-    # Calculate mean squared error (MSE)
-    mse = mean_squared_error(y_test, y_pred)
+        # Predict on the testing set
+        y_pred = rf.predict(X_test)
 
-    # Store MSE along with corresponding hyperparameters
-    mse_results.append((params['n_estimators'], params['max_depth'], mse))
+        # Calculate mean squared error (MSE)
+        mse = mean_squared_error(y_test, y_pred)
 
-    # Print current hyperparameters and MSE
-    print(f"n_estimators: {params['n_estimators']}, max_depth: {params['max_depth']}, MSE: {mse}")
+        # Store MSE along with corresponding hyperparameters
+        mse_results.append((params['n_estimators'], params['max_depth'], mse))
+        
+        writer.writerow(
+            {
+                'n_estimators': params['n_estimators'],
+                'max_depth': params['max_depth'],
+                'mse': mse,
+            }
+        )
+
+        # Print current hyperparameters and MSE
+        print(f"n_estimators: {params['n_estimators']}, max_depth: {params['max_depth']}, MSE: {mse}")
 
 # Convert the MSE results into a pandas DataFrame
 results_df = pd.DataFrame(mse_results, columns=['n_estimators', 'max_depth', 'MSE'])
@@ -77,13 +94,13 @@ print("\nSummary Statistics for MSE:")
 print(summary_stats)
 
 # Plot the MSE values against hyperparameters
-plt.figure()
-plt.tricontourf(results_df['n_estimators'], results_df['max_depth'], results_df['MSE'], cmap='viridis')
-plt.colorbar(label='Mean Squared Error')
-plt.xlabel('n_estimators')
-plt.ylabel('max_depth')
-plt.title('MSE for Random Forest Regression Hyperparameters')
-plt.show()
+# plt.figure()
+# plt.tricontourf(results_df['n_estimators'], results_df['max_depth'], results_df['MSE'], cmap='viridis')
+# plt.colorbar(label='Mean Squared Error')
+# plt.xlabel('n_estimators')
+# plt.ylabel('max_depth')
+# plt.title('MSE for Random Forest Regression Hyperparameters')
+# plt.show()
 
 # Find the best combination with the minimum MSE
 best_combination = results_df.loc[results_df['MSE'].idxmin()]
@@ -91,3 +108,4 @@ best_combination = results_df.loc[results_df['MSE'].idxmin()]
 # Print the best combination and its corresponding MSE
 print("\nBest Combination:")
 print(best_combination)
+print(f"Time taken: {time.time() - start}")

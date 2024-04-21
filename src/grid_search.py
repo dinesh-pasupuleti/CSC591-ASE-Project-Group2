@@ -18,19 +18,30 @@ data.drop(columns=columns_to_exclude, inplace=True)
 for col in data.columns:
     if col.endswith("+") or col.endswith("-"):
         # Apply transformation to numeric columns ending with '+' or '-'
-        data[col] = 1 - (data[col] - data[col].min()) / (data[col].max() - data[col].min())
+        data[col] = 1 - (data[col] - data[col].min()) / (
+            data[col].max() - data[col].min()
+        )
+
 
 def calculate_distance(row):
-    cols_to_include = [col for col in data.columns if col.endswith("+") or col.endswith("-")]
-    return round(math.sqrt(sum((row[col] ** 2) for col in cols_to_include)) / len(cols_to_include), 3)
+    cols_to_include = [
+        col for col in data.columns if col.endswith("+") or col.endswith("-")
+    ]
+    return round(
+        math.sqrt(sum((row[col] ** 2) for col in cols_to_include))
+        / len(cols_to_include),
+        3,
+    )
+
 
 # Apply the calculate_distance function row-wise to create the 'd2h' column
 data['d2h'] = data.apply(calculate_distance, axis=1)
 
 
-
 # Drop columns ending with '+' or '-'
-columns_to_drop = [col for col in data.columns if col.endswith('+') or col.endswith('-')]
+columns_to_drop = [
+    col for col in data.columns if col.endswith('+') or col.endswith('-')
+]
 data.drop(columns=columns_to_drop, inplace=True)
 print(data)
 # Drop rows with NaN values (those that originally contained '?')

@@ -7,6 +7,7 @@ import pandas as pd
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
+import time
 
 
 def main():
@@ -51,6 +52,7 @@ def print_class_percentages(data):
 
 
 if __name__ == '__main__':
+    start = time.time()
     main()
 
     file_name = "Wine_quality"
@@ -133,6 +135,8 @@ if __name__ == '__main__':
         print(mse)
 
     avg_error = total_error / iters
-    print(avg_error)
+    print(f"Average MSE- {avg_error}")
+    end = time.time()
+    print(f"Time taken- {end - start}")
 
     os.remove(f"data/{file_name}_processed.csv")
