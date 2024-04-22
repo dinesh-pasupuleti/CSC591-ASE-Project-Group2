@@ -1,14 +1,14 @@
 import pandas as pd
 import math
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split, ParameterGrid
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 import csv
+import time
 
 # Load data, specifying '?' as NaN values
-data = pd.read_csv("data/SS.csv", na_values="?")
+data = pd.read_csv("data/SS-E.csv", na_values="?")
 
 # Identify and exclude columns ending with 'X'
 columns_to_exclude = [col for col in data.columns if col.endswith('X')]
@@ -43,14 +43,13 @@ columns_to_drop = [
     col for col in data.columns if col.endswith('+') or col.endswith('-')
 ]
 data.drop(columns=columns_to_drop, inplace=True)
-print(data)
+
 # Drop rows with NaN values (those that originally contained '?')
 data.dropna(inplace=True)
 
 # Split data into X and y
 X = data.drop(columns=['d2h'])
 y = data['d2h']
-
 
 # Split into train and test sets
 X_train, X_test, y_train, y_test = train_test_split(
@@ -71,6 +70,8 @@ with open('mse_results.csv', 'w', newline='') as csvfile:
     fieldnames = ['n_estimators', 'max_depth', 'mse']
     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
     writer.writeheader()
+
+    start_time = time.time()  # Start timer
 
     # Loop over parameter grid and evaluate each combination
     for params in ParameterGrid(param_grid):
@@ -103,6 +104,9 @@ with open('mse_results.csv', 'w', newline='') as csvfile:
             f"n_estimators: {params['n_estimators']}, max_depth: {params['max_depth']}, MSE: {mse}"
         )
 
+    end_time = time.time()  # End timer
+    runtime = end_time - start_time  # Calculate runtime in seconds
+
 print("MSE results saved to mse_results.csv")
 
 # Extract data for visualization from the CSV file
@@ -111,28 +115,11 @@ estimators = df_results['n_estimators']
 depths = df_results['max_depth']
 mse_values = df_results['mse']
 
-# Create 3D scatter plot
-# fig = plt.figure(figsize=(10, 6))
-# ax = fig.add_subplot(111, projection='3d')
-# ax.scatter(estimators, depths, mse_values, c=mse_values, cmap='viridis')
-# ax.set_xlabel('n_estimators')
-# ax.set_ylabel('max_depth')
-# ax.set_zlabel('Mean Squared Error')
-# plt.title('MSE for Random Forest Regression Hyperparameters')
-# plt.colorbar(ax.collections[0], label='Mean Squared Error')
-# plt.show()
-
-# # Alternatively, create a heatmap
-# plt.figure()
-# plt.tricontourf(estimators, depths, mse_values, cmap='viridis')
-# plt.colorbar(label='Mean Squared Error')
-# plt.xlabel('n_estimators')
-# plt.ylabel('max_depth')
-# plt.title('MSE for Random Forest Regression Hyperparameters')
-# plt.show()
-
 # Find the best combination with minimum MSE
 best_params = df_results.loc[df_results['mse'].idxmin()]
 print(
     f"\nBest combination - (n_estimators: {best_params['n_estimators']}, max_depth: {best_params['max_depth']}), Min MSE: {best_params['mse']}"
 )
+
+# Print runtime
+print(f"Total runtime: {runtime:.2f} seconds")

@@ -11,7 +11,7 @@ import time
 
 # Load data (assuming 'data/Wine_quality.csv' is your data file path)
 start = time.time()
-filename = "Wine_quality"
+filename = "coc10000"
 data = pd.read_csv(f"data/{filename}.csv")
 
 # Normalize the dataset based on column suffixes

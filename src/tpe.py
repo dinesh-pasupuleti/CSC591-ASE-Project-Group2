@@ -1,143 +1,122 @@
+import numpy as np
 import pandas as pd
 import math
-import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
-from hyperopt import hp, fmin, tpe, Trials
+from hyperopt import hp, fmin, tpe, Trials, STATUS_OK
+from scipy import stats
 
+def collect_mse_values(X, y, num_evals=30, random_state=42):
+    # Split the data
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=random_state
+    )
 
-data = pd.read_csv("data/Wine_quality.csv")
+    # Define the search space for Hyperopt
+    space = {
+        'n_estimators': hp.quniform('n_estimators', 50, 500, 10),
+        'max_depth': hp.quniform('max_depth', 5, 20, 1),
+    }
 
+    # Define the objective function for Hyperopt
+    def objective(params):
+        params['n_estimators'] = int(params['n_estimators'])
+        params['max_depth'] = int(params['max_depth'])
+        model = RandomForestRegressor(**params, random_state=random_state)
+        model.fit(X_train, y_train)
+        mse = mean_squared_error(y_test, model.predict(X_test))
+        return {'loss': mse, 'status': STATUS_OK}
+
+    # Run Hyperopt
+    trials = Trials()
+    best_hyperopt = fmin(
+        fn=objective, space=space, algo=tpe.suggest, max_evals=num_evals, trials=trials
+    )
+    mse_hyperopt = [trial['result']['loss'] for trial in trials.trials]
+
+    # Setup for Randomized Search
+    param_dist = {
+        'n_estimators': np.arange(50, 501, 10),
+        'max_depth': np.arange(5, 21, 1),
+    }
+    model = RandomForestRegressor(random_state=random_state)
+    random_search = RandomizedSearchCV(
+        model, param_dist, n_iter=num_evals, cv=5, scoring='neg_mean_squared_error', random_state=random_state
+    )
+    random_search.fit(X_train, y_train)
+    mse_random_search = -random_search.cv_results_['mean_test_score']
+
+    return mse_hyperopt, mse_random_search
+
+# Load your data
+# Load data, specifying '?' as NaN values
+data = pd.read_csv("data/SS-A.csv", na_values="?")
+
+# Identify and exclude columns ending with 'X'
+columns_to_exclude = [col for col in data.columns if col.endswith('X')]
+data.drop(columns=columns_to_exclude, inplace=True)
+
+# Preprocess data
 for col in data.columns:
     if col.endswith("+") or col.endswith("-"):
-        data[col] = (data[col] - data[col].min()) / (data[col].max() - data[col].min())
-        data[col] = 1 - data[col]
-    elif col.endswith("-"):
-        data[col] = (data[col] - data[col].min()) / (data[col].max() - data[col].min())
-
-
-data["d2h"] = None
-
-calculate_distance = lambda row: round(
-    math.sqrt(
-        sum(
-            (row[col] ** 2)
-            for col in data.columns
-            if col.endswith("+") or col.endswith("-")
+        # Apply transformation to numeric columns ending with '+' or '-'
+        data[col] = 1 - (data[col] - data[col].min()) / (
+            data[col].max() - data[col].min()
         )
-        / sum(1 for col in data.columns if col.endswith("+") or col.endswith("-"))
-    ),
-    3,
-)
+
+
+def calculate_distance(row):
+    cols_to_include = [
+        col for col in data.columns if col.endswith("+") or col.endswith("-")
+    ]
+    return round(
+        math.sqrt(sum((row[col] ** 2) for col in cols_to_include))
+        / len(cols_to_include),
+        3,
+    )
+
+
+# Apply the calculate_distance function row-wise to create the 'd2h' column
 data['d2h'] = data.apply(calculate_distance, axis=1)
 
-cols = list(data.columns)
 
+# Drop columns ending with '+' or '-'
 columns_to_drop = [
     col for col in data.columns if col.endswith('+') or col.endswith('-')
 ]
-data = data.drop(columns=columns_to_drop)
+data.drop(columns=columns_to_drop, inplace=True)
 
-data.to_csv("data.csv", sep=",", index=False)
+# Drop rows with NaN values (those that originally contained '?')
+data.dropna(inplace=True)
 
+# Split data into X and y
 X = data.drop(columns=['d2h'])
 y = data['d2h']
 
+# Collect MSE values from both tuning methods
+mse_hyperopt, mse_random_search = collect_mse_values(X, y)
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
+# Shapiro-Wilk Test for normality
+print("Normality Test (Hyperopt):", stats.shapiro(mse_hyperopt))
+print("Normality Test (Random Search):", stats.shapiro(mse_random_search))
 
+# Mann-Whitney U Test for non-parametric comparison
+u_stat, p_value = stats.mannwhitneyu(mse_hyperopt, mse_random_search, alternative='two-sided')
+print("U-statistic:", u_stat, "P-value:", p_value)
 
-def objective(params):
-    # Convert 'n_estimators' and 'max_depth' parameters to integers
-    params['n_estimators'] = int(params['n_estimators'])
-    params['max_depth'] = int(params['max_depth'])
-
-    # Create RandomForestRegressor with given parameters
-    model = RandomForestRegressor(**params, random_state=42)
-
-    # Train the model
-    model.fit(X_train, y_train)
-
-    # Make predictions
-    y_pred = model.predict(X_test)
-
-    # Calculate mean squared error
-    mse = mean_squared_error(y_test, y_pred)
-
-    return mse
-
-
-space = {
-    'n_estimators': hp.quniform(
-        'n_estimators', 50, 500, 10
-    ),  # Integer values between 50 and 500
-    'max_depth': hp.quniform('max_depth', 5, 20, 1),  # Integer values between 5 and 20
-}
-
-trials = Trials()  # Keep track of the trials
-best_params = fmin(
-    fn=objective,  # Objective function to minimize
-    space=space,  # Search space
-    algo=tpe.suggest,  # Optimization algorithm (TPE)
-    max_evals=100,  # Maximum number of evaluations
-    trials=trials,
-)  # Trials object to track the process
-
-# Extract the loss values (mse) from the trials
-losses = [trial['result']['loss'] for trial in trials.trials]
+# Calculate effect size r
+r_effect_size = 1 - (2 * u_stat) / (len(mse_hyperopt) * len(mse_random_search))
+print("Effect Size r:", r_effect_size)
 
 # Plot the evolution of mean squared error across iterations
 plt.figure(figsize=(10, 6))
-plt.plot(losses, marker='o', linestyle='-', color='b')
+plt.plot(mse_hyperopt, marker='o', linestyle='-', color='b', label='Hyperopt MSE')
+plt.plot(mse_random_search, marker='x', linestyle='-', color='r', label='Random Search MSE')
 plt.title('Evolution of Mean Squared Error')
 plt.xlabel('Iteration')
 plt.ylabel('Mean Squared Error')
+plt.legend()
 plt.grid(True)
 plt.show()
-
-# Print the number of TPE evaluations
-print("Number of TPE evaluations:", len(trials.trials))
-
-param_grid_random = {
-    'n_estimators': np.random.choice(
-        np.arange(50, 501, 10), size=100, replace=True
-    ),  # Adjust size if needed
-    'max_depth': np.random.choice(
-        np.arange(5, 21), size=100, replace=True
-    ),  # Adjust size if needed
-}
-
-random_search = RandomizedSearchCV(
-    estimator=RandomForestRegressor(random_state=42),
-    param_distributions=param_grid_random,
-    n_iter=100,
-    cv=5,
-    scoring='neg_mean_squared_error',
-    random_state=42,
-)
-random_search.fit(X_train, y_train)
-
-# Print results and compare
-print("Random Search: Best Parameters:", random_search.best_params_)
-print(
-    "Random Search: Final MSE on Test Set:",
-    mean_squared_error(y_test, random_search.predict(X_test)),
-)
-
-# Print the best parameters found by TPE
-print("Best Parameters (TPE):", best_params)
-
-# Evaluate the final model with the best parameters on the test set
-best_params['n_estimators'] = int(best_params['n_estimators'])
-best_params['max_depth'] = int(best_params['max_depth'])
-
-final_model = RandomForestRegressor(**best_params, random_state=42)
-final_model.fit(X_train, y_train)
-
-y_pred_final = final_model.predict(X_test)
-mse_final = mean_squared_error(y_test, y_pred_final)
-print("Final MSE on Test Set (TPE):", mse_final)

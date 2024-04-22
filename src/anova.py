@@ -2,7 +2,7 @@ import pandas as pd
 import os
 
 # List of dataset filenames
-dataset_filenames = ['SS-D.csv', 'SS-E.csv', 'SS-F.csv', 'SS-G.csv']
+dataset_filenames = ['SS-A.csv', 'SS-C.csv']
 
 # Initialize an empty list to store dataframes
 dfs = []
@@ -19,7 +19,7 @@ for filename in dataset_filenames:
 combined_df = pd.concat(dfs, ignore_index=True)
 
 # Save the combined dataframe to a new CSV file
-combined_filepath = 'SS.csv'
+combined_filepath = 'SS2.csv'
 combined_df.to_csv(combined_filepath, index=False)
 
 print(f"Combined dataset saved to {combined_filepath}")

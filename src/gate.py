@@ -68,7 +68,7 @@ if __name__ == '__main__':
     data1 = pd.read_csv(f"data/{file_name}.csv")
 
     for col in data1.columns:
-        if col.endswith("+") or col.endswith("-"):
+        if col.endswith("+"):
             data1[col] = (data1[col] - data1[col].min()) / (
                 data1[col].max() - data1[col].min()
             )
@@ -103,6 +103,7 @@ if __name__ == '__main__':
 
     iters = 20
     total_error = 0
+    y_values = []
 
     for _ in range(iters):
         lite = paramsX.gate(600, 300, 0.5, file_name)
@@ -128,6 +129,7 @@ if __name__ == '__main__':
         X_test = params.drop("mse", axis=1)
         y_test = params["mse"]
         y_pred = lr.predict(X_test)
+        y_values.append(y_pred)
 
         mse = mean_squared_error(y_test, y_pred)
         total_error += mse
@@ -138,5 +140,19 @@ if __name__ == '__main__':
     print(f"Average MSE- {avg_error}")
     end = time.time()
     print(f"Time taken- {end - start}")
+
+    X_test = params.drop("mse", axis=1)
+
+    with open(f"data/smo/{file_name}_results.csv", "w") as file:
+        file.write("n_estimators,max_depth,mse\n")
+        for i in range(len(X_test)):
+            # y_sum = 0
+            # for j in range(len(y_values)):
+                # y_sum += y_values[j][i]
+            
+            # y_sum /= len(y_values)
+
+            file.write(f"{X_test.iloc[i].n_estimators},{X_test.iloc[i].max_depth},{y_values[-1][i]}\n")
+
 
     os.remove(f"data/{file_name}_processed.csv")

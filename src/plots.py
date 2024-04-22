@@ -1,39 +1,99 @@
-import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import math
+import matplotlib.pyplot as plt
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+from hyperopt import hp, fmin, tpe, Trials, STATUS_OK
+import time  # Import time to measure the runtime of the TPE
 
-# Load the results from the CSV file
-df_results = pd.read_csv('data/Wine_quality_mse.csv')
-
-# Prepare the grid for plotting; choose a manageable number of depths, like every 5th depth
-unique_depths = df_results['max_depth'].unique()
-selected_depths = unique_depths[::5]  # adjust the stride as necessary for visualization
-
-# Create the plot grid
-n_cols = 3  # adjust based on preference and screen resolution
-n_rows = int(np.ceil(len(selected_depths) / n_cols))
-fig, axes = plt.subplots(
-    n_rows, n_cols, figsize=(n_cols * 6, n_rows * 4), sharex=True, sharey=True
-)
-axes = axes.flatten()
-
-# Plot each depth in its subplot
-for ax, depth in zip(axes, selected_depths):
-    subset = df_results[df_results['max_depth'] == depth]
-    ax.plot(
-        subset['n_estimators'], subset['mse'], marker='o', linestyle='-', markersize=4
+def collect_tpe_mse_values(X, y, num_evals=30, random_state=42):
+    # Split the data
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=random_state
     )
-    ax.set_title(f'Max Depth = {depth}')
-    ax.set_xlabel('n_estimators')
-    ax.set_ylabel('MSE')
-    ax.grid(True)
 
-# Adjust layout and add a general title
-fig.tight_layout(pad=2.0)
-fig.suptitle('MSE vs n_estimators for selected max_depths', fontsize=16)
+    # Define the search space for Hyperopt
+    space = {
+        'n_estimators': hp.quniform('n_estimators', 50, 500, 10),
+        'max_depth': hp.quniform('max_depth', 5, 20, 1),
+    }
 
-# Hide unused axes if any
-for i in range(len(selected_depths), len(axes)):
-    fig.delaxes(axes[i])
+    # Define the objective function for Hyperopt
+    def objective(params):
+        params['n_estimators'] = int(params['n_estimators'])
+        params['max_depth'] = int(params['max_depth'])
+        model = RandomForestRegressor(**params, random_state=random_state)
+        model.fit(X_train, y_train)
+        mse = mean_squared_error(y_test, model.predict(X_test))
+        return {'loss': mse, 'status': STATUS_OK}
 
-plt.show()
+    # Run Hyperopt with timing
+    start_time = time.time()
+    trials = Trials()
+    best_hyperopt = fmin(
+        fn=objective, space=space, algo=tpe.suggest, max_evals=num_evals, trials=trials
+    )
+    end_time = time.time()
+    mse_hyperopt = [trial['result']['loss'] for trial in trials.trials]
+
+    # Return the MSE values, the best configuration, and the runtime
+    runtime = end_time - start_time
+    return mse_hyperopt, best_hyperopt, runtime
+
+# Load data
+# Load data, specifying '?' as NaN values
+data = pd.read_csv("data/Wine_quality.csv", na_values="?")
+
+# Identify and exclude columns ending with 'X'
+columns_to_exclude = [col for col in data.columns if col.endswith('X')]
+data.drop(columns=columns_to_exclude, inplace=True)
+
+# Preprocess data
+for col in data.columns:
+    if col.endswith("+") or col.endswith("-"):
+        # Apply transformation to numeric columns ending with '+' or '-'
+        data[col] = 1 - (data[col] - data[col].min()) / (
+            data[col].max() - data[col].min()
+        )
+
+
+def calculate_distance(row):
+    cols_to_include = [
+        col for col in data.columns if col.endswith("+") or col.endswith("-")
+    ]
+    return round(
+        math.sqrt(sum((row[col] ** 2) for col in cols_to_include))
+        / len(cols_to_include),
+        3,
+    )
+
+
+# Apply the calculate_distance function row-wise to create the 'd2h' column
+data['d2h'] = data.apply(calculate_distance, axis=1)
+
+
+# Drop columns ending with '+' or '-'
+columns_to_drop = [
+    col for col in data.columns if col.endswith('+') or col.endswith('-')
+]
+data.drop(columns=columns_to_drop, inplace=True)
+
+# Drop rows with NaN values (those that originally contained '?')
+data.dropna(inplace=True)
+
+# Split data into X and y
+X = data.drop(columns=['d2h'])
+y = data['d2h']
+
+# Collect TPE MSE values, best configuration, and runtime
+mse_hyperopt, best_hyperopt, runtime = collect_tpe_mse_values(X, y)
+
+# Determine the minimum MSE achieved
+min_mse = min(mse_hyperopt)
+
+print(f"Best TPE Configuration: {best_hyperopt}")
+print(f"Minimum MSE Achieved: {min_mse}")
+print(f"TPE Runtime: {runtime:.2f} seconds")
+

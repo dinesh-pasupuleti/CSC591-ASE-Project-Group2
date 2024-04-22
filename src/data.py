@@ -64,7 +64,7 @@ class DATA:
 
     def gate(self, budget0, budget, some, file_name):
 
-        self.mse_data = pd.read_csv(f"data/gradientsearch/{file_name}_mse.csv")
+        self.mse_data = pd.read_csv(f"data/gradientsearch/{file_name}_mse_results.csv")
 
         rows = self.shuffle(self.rows)
         lite = rows[:budget0]
